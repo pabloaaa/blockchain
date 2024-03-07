@@ -1,4 +1,4 @@
-use crate::block::Block;
+use crate::block::{Block, Transaction};
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -20,14 +20,14 @@ impl Blockchain {
     }
 
     fn create_genesis_block(&mut self) {
-        let genesis_block = Block::new(0, self.current_timestamp(), String::from("Genesis Block"), String::from("0"));
+        let genesis_block = Block::new(0, self.current_timestamp(), vec![], String::from("0"), 0);
         self.chain.push(genesis_block);
     }
 
-    pub fn add_block(&mut self, data: String) {
+    pub fn add_block(&mut self, transactions: Vec<Transaction>, nonce: u64) {
         let index = self.chain.len() as u32;
         let previous_hash = self.chain[self.chain.len() - 1].hash.clone();
-        let mut block = Block::new(index, self.current_timestamp(), data, previous_hash);
+        let mut block = Block::new(index, self.current_timestamp(), transactions, previous_hash, nonce);
         block.calculate_hash();
         self.chain.push(block);
     }
@@ -56,29 +56,39 @@ mod tests {
     fn test_new_blockchain() {
         let blockchain = Blockchain::new();
         assert_eq!(blockchain.chain.len(), 1); // Blockchain should be initialized with a genesis block
-        assert_eq!(blockchain.chain[0].data, "Genesis Block");
+        assert_eq!(blockchain.chain[0].transactions.len(), 0); // Genesis block has no transactions
     }
 
     #[test]
     fn test_add_block() {
         let mut blockchain = Blockchain::new();
-        blockchain.add_block(String::from("New Block Data"));
+        let transactions = vec![
+            Transaction { sender: String::from("Alice"), receiver: String::from("Bob"), amount: 50.0 },
+        ];
+        blockchain.add_block(transactions, 0);
         assert_eq!(blockchain.chain.len(), 2);
-        assert_eq!(blockchain.chain[1].data, "New Block Data");
+        assert_eq!(blockchain.chain[1].transactions[0].sender, "Alice");
+        assert_eq!(blockchain.chain[1].transactions[0].receiver, "Bob");
+        assert_eq!(blockchain.chain[1].transactions[0].amount, 50.0);
     }
 
     #[test]
     fn test_last() {
         let blockchain = Blockchain::new();
-        assert_eq!(blockchain.last().unwrap().data, "Genesis Block");
+        assert_eq!(blockchain.last().unwrap().transactions.len(), 0); // Genesis block has no transactions
     }
 
     #[test]
     fn add_block_from_existing() {
         let mut blockchain = Blockchain::new();
-        let block = Block::new(1, 0, String::from("New Block Data"), String::from("0"));
+        let transactions = vec![
+            Transaction { sender: String::from("Alice"), receiver: String::from("Bob"), amount: 50.0 },
+        ];
+        let block = Block::new(1, 0, transactions, String::from("0"), 0);
         blockchain.add_block_from_existing(block);
         assert_eq!(blockchain.chain.len(), 2);
-        assert_eq!(blockchain.chain[1].data, "New Block Data");
+        assert_eq!(blockchain.chain[1].transactions[0].sender, "Alice");
+        assert_eq!(blockchain.chain[1].transactions[0].receiver, "Bob");
+        assert_eq!(blockchain.chain[1].transactions[0].amount, 50.0);
     }
 }

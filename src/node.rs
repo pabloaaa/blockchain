@@ -48,6 +48,7 @@ impl Node {
                             let last_block = blockchain.last().unwrap();
                         
                             // Validate the received block
+                            // TODO : nonce and transaction validation
                             if received_block.index == last_block.index + 1 && received_block.previous_hash == last_block.hash {
                                 blockchain.add_block_from_existing(received_block);
                             } else {
@@ -96,18 +97,18 @@ mod tests {
 
         // Create a new block and calculate its hash
         let last_block_hash = blockchain.last().unwrap().hash.clone();
-        let mut block = Block::new(1, 0, String::from("Block1"), last_block_hash);
+        let mut block = Block::new(1, 0, vec![], last_block_hash, 10);
         block.calculate_hash();
 
         let message = serde_json::to_string(&block).unwrap();
         stream.write_all(message.as_bytes()).await.unwrap();
 
         // Give the server a little bit of time to process the message.
-        sleep(Duration::from_secs(10)).await;
+        sleep(Duration::from_secs(2)).await;
 
         // Check that the block was added to the blockchain, we need to get the blockchain again because the node is running in a different thread!!!
         let blockchain = node.get_blockchain();
         assert_eq!(blockchain.last().unwrap().index, 1);
         
-}
+    }
 }
