@@ -1,7 +1,8 @@
 use sha2::Sha256;
 use sha2::Digest;
+use serde::{Serialize, Deserialize};
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Block {
     pub index: u32,
     pub timestamp: u64,
@@ -10,6 +11,7 @@ pub struct Block {
     pub hash: String,
 }
 
+#[allow(dead_code)]
 impl Block {
     pub fn new(index: u32, timestamp: u64, data: String, previous_hash: String) -> Block {
         Block {
