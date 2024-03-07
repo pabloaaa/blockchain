@@ -1,0 +1,22 @@
+[package]
+name = "blockchain"
+version = "0.1.0"
+edition = "2021"
+
+
+[dependencies]
+crypto = "0.5.0"
+sha2 = "0.10.1"
+tokio = { version = "1.0", features = ["full"] }
+
+[[bin]]
+name = "block"
+path = "src/block.rs"
+
+[[bin]]
+name = "blockchain"
+path = "src/blockchain.rs"
+
+[[bin]]
+name = "node"
+path = "src/node.rs"
