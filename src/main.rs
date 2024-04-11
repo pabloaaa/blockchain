@@ -2,6 +2,8 @@
 mod block;
 mod blockchain;
 mod node;
+mod blockcreator;
+mod blockvalidator;
 
 fn main() {
     println!("Hello, world!");

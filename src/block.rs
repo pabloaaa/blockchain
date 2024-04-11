@@ -16,20 +16,22 @@ pub struct Block {
     pub previous_hash: String,
     pub hash: String,
     pub transactions: Vec<Transaction>,
-    pub nonce: u64,
+    pub data: u64,
 }
 
 #[allow(dead_code)]
 impl Block {
     pub fn new(index: u32, timestamp: u64, transactions: Vec<Transaction>, previous_hash: String, nonce: u64) -> Block {
-        Block {
+        let mut block = Block {
             index,
             timestamp,
             transactions,
             previous_hash,
             hash: String::new(),
-            nonce,
-        }
+            data: nonce,
+        };
+        block.calculate_hash();
+        block
     }
 
     pub fn calculate_hash(&mut self) {
@@ -38,7 +40,7 @@ impl Block {
             .map(|transaction| format!("{}{}{}", transaction.sender, transaction.receiver, transaction.amount))
             .collect::<Vec<String>>()
             .join("");
-        sha.update(&format!("{}{}{}{}{}", self.index, self.timestamp, transactions_string, self.previous_hash, self.nonce).as_bytes());
+        sha.update(&format!("{}{}{}{}{}", self.index, self.timestamp, transactions_string, self.previous_hash, self.data).as_bytes());
         self.hash = format!("{:x}", sha.finalize());
     }
 }

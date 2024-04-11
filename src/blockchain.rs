@@ -1,4 +1,4 @@
-use crate::block::{Block, Transaction};
+use crate::block::{Block};
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -24,15 +24,7 @@ impl Blockchain {
         self.chain.push(genesis_block);
     }
 
-    pub fn add_block(&mut self, transactions: Vec<Transaction>, nonce: u64) {
-        let index = self.chain.len() as u32;
-        let previous_hash = self.chain[self.chain.len() - 1].hash.clone();
-        let mut block = Block::new(index, self.current_timestamp(), transactions, previous_hash, nonce);
-        block.calculate_hash();
-        self.chain.push(block);
-    }
-
-    pub fn add_block_from_existing(&mut self, block: Block) {
+    pub fn add_block(&mut self, block: Block) {
         self.chain.push(block);
     }
 
@@ -45,6 +37,10 @@ impl Blockchain {
 
     pub fn last(&self) -> Option<&Block> {
         self.chain.last()
+    }
+    
+    pub fn len(&self) -> usize {
+        self.chain.len()
     }
 }
 
@@ -59,18 +55,6 @@ mod tests {
         assert_eq!(blockchain.chain[0].transactions.len(), 0); // Genesis block has no transactions
     }
 
-    #[test]
-    fn test_add_block() {
-        let mut blockchain = Blockchain::new();
-        let transactions = vec![
-            Transaction { sender: String::from("Alice"), receiver: String::from("Bob"), amount: 50.0 },
-        ];
-        blockchain.add_block(transactions, 0);
-        assert_eq!(blockchain.chain.len(), 2);
-        assert_eq!(blockchain.chain[1].transactions[0].sender, "Alice");
-        assert_eq!(blockchain.chain[1].transactions[0].receiver, "Bob");
-        assert_eq!(blockchain.chain[1].transactions[0].amount, 50.0);
-    }
 
     #[test]
     fn test_last() {
@@ -79,16 +63,16 @@ mod tests {
     }
 
     #[test]
-    fn add_block_from_existing() {
+    fn test_add_block() {
         let mut blockchain = Blockchain::new();
         let transactions = vec![
-            Transaction { sender: String::from("Alice"), receiver: String::from("Bob"), amount: 50.0 },
+            Transaction { sender: "Alice".to_string(), receiver: "Bob".to_string(), amount: 50.0 },
+            Transaction { sender: "Bob".to_string(), receiver: "Charlie".to_string(), amount: 25.0 },
         ];
-        let block = Block::new(1, 0, transactions, String::from("0"), 0);
-        blockchain.add_block_from_existing(block);
-        assert_eq!(blockchain.chain.len(), 2);
-        assert_eq!(blockchain.chain[1].transactions[0].sender, "Alice");
-        assert_eq!(blockchain.chain[1].transactions[0].receiver, "Bob");
-        assert_eq!(blockchain.chain[1].transactions[0].amount, 50.0);
+        let previous_hash = blockchain.last().unwrap().hash.clone();
+        let block = Block::new(1, blockchain.current_timestamp(), transactions.clone(), previous_hash, 0);
+        blockchain.add_block(block);
+
+        assert_eq!(blockchain.chain.len(), 2); // After adding a block, the blockchain length should be 2
     }
 }

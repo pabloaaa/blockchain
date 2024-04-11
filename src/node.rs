@@ -1,71 +1,71 @@
-use tokio::{io::{AsyncReadExt}, net::TcpListener};
-use std::error::Error;
-use std::sync::{Arc, Mutex};
-use crate::{block::Block, blockchain::Blockchain};
+use tokio::{io::{AsyncWriteExt}, net::TcpListener};
+use std::{error::Error, sync::mpsc};
+use tokio::sync::Mutex;
+use std::sync::Arc;
+use crate::{block::{Block}, blockchain::Blockchain};
 
 #[derive(Clone)]
+#[allow(dead_code)]
 pub struct Node {
     blockchain: Arc<Mutex<Blockchain>>,
+    clients: Arc<Mutex<Vec<tokio::net::TcpStream>>>,
+    new_block_receiver: Arc<Mutex<mpsc::Receiver<Block>>>,
 }
 
 #[allow(dead_code)]
 impl Node {
-    pub fn new(blockchain: Blockchain) -> Node {
+    pub fn new(blockchain: Blockchain, new_block_receiver: mpsc::Receiver<Block>) -> Node {
         Node {
             blockchain: Arc::new(Mutex::new(blockchain)),
+            clients: Arc::new(Mutex::new(Vec::new())),
+            new_block_receiver: Arc::new(Mutex::new(new_block_receiver)),
         }
     }
 
-    pub fn get_blockchain(&self) -> Blockchain {
-        let blockchain = self.blockchain.lock().unwrap();
+    pub async fn get_blockchain(&self) -> Blockchain {
+        let blockchain = self.blockchain.lock().await;
         blockchain.clone()
     }
 
-    // Define an asynchronous function to start the Node
     pub async fn start(&self, address: &str) -> Result<(), Box<dyn Error>> {
-        // Bind a TCP listener to the given address
         let listener = TcpListener::bind(address).await?;
         let blockchain = Arc::clone(&self.blockchain);
-
-        loop {
-            // Accept a new connection
-            let (mut socket, _) = listener.accept().await?;
-            let blockchain = Arc::clone(&blockchain);
-
-            // Spawn a new asynchronous task to handle the connection
-            tokio::spawn(async move {
-                let mut buf = [0; 1024];
-
-                loop {
-                    // Read data from the socket
-                    match socket.read(&mut buf).await {
-                        // If no data was read, the connection was closed
-                        Ok(n) => {
-                            // handle message
-                            let message = String::from_utf8_lossy(&buf[..n]);
-                            let received_block: Block = serde_json::from_str(&message).unwrap();
-                            let mut blockchain = blockchain.lock().unwrap();
-                            let last_block = blockchain.last().unwrap();
-                        
-                            // Validate the received block
-                            // TODO : nonce and transaction validation
-                            if received_block.index == last_block.index + 1 && received_block.previous_hash == last_block.hash {
-                                blockchain.add_block_from_existing(received_block);
-                            } else {
-                                eprintln!("Received block is invalid");
-                            }
-                        }
-                        Err(e) => {
-                            eprintln!("Failed to read from socket; err = {:?}", e);
-                            return;
-                        }
+        let clients = Arc::clone(&self.clients);
+        let new_block_receiver = Arc::clone(&self.new_block_receiver);
+    
+        tokio::spawn(async move {
+            while let Ok(block) = {
+                let receiver = new_block_receiver.lock().await;
+                receiver.recv()
+            } {
+                let last_block;
+                {
+                    let mut blockchain = blockchain.lock().await;
+                    last_block = blockchain.last().unwrap().clone();
+    
+                    if block.index == last_block.index + 1 && block.previous_hash == last_block.hash {
+                        blockchain.add_block(block.clone());
+                    } else {
+                        eprintln!("Received block is invalid");
                     }
                 }
-            });
+    
+                let mut clients = clients.lock().await;
+                for client in clients.iter_mut() {
+                    let message = serde_json::to_string(&block).unwrap();
+                    client.write_all(message.as_bytes()).await.unwrap();
+                }
+            }
+        });
+    
+        loop {
+            let (socket, _) = listener.accept().await?;
+            let clients = Arc::clone(&self.clients);
+            let mut clients = clients.lock().await;
+            clients.push(socket);
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {
